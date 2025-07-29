@@ -1,33 +1,35 @@
 #!/data/data/com.termux/files/usr/bin/bash
 clear
-echo "🔧 Menginstall dependensi Termux..."
-sleep 1
+echo "🔧 Memulai setup CCMiner Termux..."
 
+# Instal dependensi
 pkg update -y > /dev/null 2>&1
 pkg upgrade -y > /dev/null 2>&1
 pkg install wget curl libjansson nano dos2unix -y > /dev/null 2>&1
 
-echo "✅ Semua dependensi siap!"
-sleep 1
-
+# Folder kerja
 mkdir -p ~/ccminer
 cd ~/ccminer
 
-if [ ! -f "./ccminer" ]; then
-    echo "⬇️  Mengunduh ccminer precompiled..."
-    wget -q https://github.com/Darktron/pre-compiled/releases/download/ccminer-android/ccminer -O ccminer
-    chmod +x ccminer
-fi
+# 🔥 Bersihkan file lama
+echo "🧹 Membersihkan file lama..."
+rm -f ccminer config.json ril*.* > /dev/null 2>&1
 
-# 📥 INPUT DATA USER
-echo "🌐 Silakan masukkan data mining kamu:"
+# Unduh ccminer
+echo "⬇️ Mengunduh ccminer precompiled..."
+wget -q https://github.com/Darktron/pre-compiled/releases/download/ccminer-android/ccminer -O ccminer
+chmod +x ccminer
+
+# Input manual dari user
+echo "🌐 Masukkan data mining kamu:"
 read -p "Pool URL (tanpa stratum+tcp://): " POOL
 read -p "Port: " PORT
 read -p "Wallet Address: " WALLET
 read -p "Worker Name: " WORKER
-read -p "Threads (2 disarankan): " THREADS
+read -p "Threads (rekomendasi 2): " THREADS
 
-# ✍️ Generate config.json otomatis
+# Buat config.json baru
+echo "⚙️ Membuat config.json baru..."
 cat > config.json <<EOF
 {
   "algo": "lyra2v2",
@@ -39,7 +41,7 @@ cat > config.json <<EOF
 }
 EOF
 
-# 🔁 Auto restart + tampil minimal
+# Fungsi mining (loop + tampil minimal)
 run_miner() {
   while true; do
     ./ccminer --config config.json 2>&1 | awk '
@@ -57,7 +59,7 @@ run_miner() {
         }
       }
     '
-    echo -e "\n❗ CCMiner berhenti/crash. Mengulang dalam 5 detik..."
+    echo -e "\n⚠️ Miner crash atau keluar. Restart dalam 5 detik..."
     sleep 5
     clear
   done
