@@ -1,66 +1,67 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-# Auto setup & run ccminer with pre-defined config
-
-# ====== Konfigurasi di sini ======
-POOL="rvn.2miners.com"
-PORT="6060"
-WALLET="RVNxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-WORKER="android001"
-THREADS="2"
-# =================================
-
-# Sembunyikan proses update
 clear
-echo "⏳ Menyiapkan lingkungan... (harap tunggu)"
+echo -e "\e[92m[•] Sedang mempersiapkan lingkungan...\e[0m"
 
-{ 
-  pkg update -y >/dev/null 2>&1
-  pkg upgrade -y >/dev/null 2>&1
-  pkg install wget libjansson -y >/dev/null 2>&1
-} &
+# Tampilkan progress tanpa scroll panjang
+( pkg update -y >/dev/null 2>&1 && pkg upgrade -y >/dev/null 2>&1 && pkg install wget curl libjansson -y >/dev/null 2>&1 ) &
 
-# Tampilkan progress palsu (5 detik)
-for i in {1..5}; do
-  echo -ne "⏳ Loading dependencies [$i/5]...\r"
-  sleep 1
+sp='/-\|'
+sc=0
+printf "\n[•] Menginstal paket"
+while kill -0 $! 2>/dev/null; do
+    printf "\r[•] Menginstal paket %s" "${sp:sc++:1}"
+    ((sc==${#sp})) && sc=0
+    sleep 0.1
 done
 
-# Masuk ke direktori kerja
+clear
+
+# Setup direktori
 cd ~
-mkdir -p ccminer
+rm -rf ccminer
+mkdir ccminer
 cd ccminer
 
-# Hapus file lama jika ada
-rm -f ccminer config.json miner.log
-
-# Unduh ccminer
-echo "📥 Mengunduh ccminer..."
-wget -q https://github.com/Darktron/pre-compiled/releases/download/ccminer-android/ccminer -O ccminer
+# Unduh ccminer binary
+echo -e "\n[•] Mengunduh ccminer binary..."
+curl -L -o ccminer https://github.com/Darktron/pre-compiled/releases/download/ccminer-android/ccminer >/dev/null 2>&1
 chmod +x ccminer
 
-# Buat file konfigurasi
+# Input user
+read -p "Masukkan Pool URL (contoh: stratum+tcp://rvn.2miners.com): " POOL
+read -p "Masukkan Port (contoh: 6060): " PORT
+read -p "Masukkan Wallet Address: " WALLET
+read -p "Masukkan Nama Worker: " WORKER
+read -p "Jumlah Thread (default 2): " THREAD
+THREAD=${THREAD:-2}
+
+# Buat config
 cat > config.json <<EOF
 {
-  "url": "stratum+tcp://${POOL}:${PORT}",
-  "user": "${WALLET}.${WORKER}",
+  "url": "$POOL:$PORT",
+  "user": "$WALLET.$WORKER",
   "pass": "x",
   "algo": "x16rv2",
-  "threads": ${THREADS}
+  "threads": $THREAD
 }
 EOF
 
-# Jalankan miner dan tampilkan hanya ringkasan
-echo "🚀 Menjalankan miner..."
-while true; do
-  ./ccminer --config config.json 2>&1 | grep --line-buffered -E "YES|[0-9]+\.[0-9]+ Mh/s" | \
-  while read -r line; do
-    MH=$(echo "$line" | grep -oE "[0-9]+\.[0-9]+ Mh/s")
-    YES=$(echo "$line" | grep -o "YES")
-    clear
-    echo "██████████████████████████"
-    printf "██  %-13s %-4s ██\n" "$MH" "$YES"
-    echo "██████████████████████████"
-  done
-  sleep 2
-done
+# Fungsi tampilan minimal
+function run_miner() {
+    while true; do
+        clear
+        ./ccminer --config config.json | while read line; do
+            SPEED=$(echo "$line" | grep -oP '[0-9.]+ Mh/s')
+            YES=$(echo "$line" | grep -o 'YES')
+            if [[ "$SPEED" != "" ]]; then
+                STATUS="████  $SPEED | ${YES:-    }  ████"
+                printf "\033c%s\n" "$STATUS"
+            fi
+        done
+        sleep 5
+    done
+}
+
+# Jalankan miner
+run_miner
