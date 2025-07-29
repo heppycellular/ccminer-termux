@@ -1,70 +1,66 @@
 #!/data/data/com.termux/files/usr/bin/bash
+
+# Auto setup & run ccminer with pre-defined config
+
+# ====== Konfigurasi di sini ======
+POOL="rvn.2miners.com"
+PORT="6060"
+WALLET="RVNxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+WORKER="android001"
+THREADS="2"
+# =================================
+
+# Sembunyikan proses update
 clear
-echo "🔧 Memulai setup CCMiner Termux..."
+echo "⏳ Menyiapkan lingkungan... (harap tunggu)"
 
-# Instal dependensi
-pkg update -y > /dev/null 2>&1
-pkg upgrade -y > /dev/null 2>&1
-pkg install wget curl libjansson nano dos2unix -y > /dev/null 2>&1
+{ 
+  pkg update -y >/dev/null 2>&1
+  pkg upgrade -y >/dev/null 2>&1
+  pkg install wget libjansson -y >/dev/null 2>&1
+} &
 
-# Folder kerja
-mkdir -p ~/ccminer
-cd ~/ccminer
+# Tampilkan progress palsu (5 detik)
+for i in {1..5}; do
+  echo -ne "⏳ Loading dependencies [$i/5]...\r"
+  sleep 1
+done
 
-# 🔥 Bersihkan file lama
-echo "🧹 Membersihkan file lama..."
-rm -f ccminer config.json ril*.* > /dev/null 2>&1
+# Masuk ke direktori kerja
+cd ~
+mkdir -p ccminer
+cd ccminer
+
+# Hapus file lama jika ada
+rm -f ccminer config.json miner.log
 
 # Unduh ccminer
-echo "⬇️ Mengunduh ccminer precompiled..."
+echo "📥 Mengunduh ccminer..."
 wget -q https://github.com/Darktron/pre-compiled/releases/download/ccminer-android/ccminer -O ccminer
 chmod +x ccminer
 
-# Input manual dari user
-echo "🌐 Masukkan data mining kamu:"
-read -p "Pool URL (tanpa stratum+tcp://): " POOL
-read -p "Port: " PORT
-read -p "Wallet Address: " WALLET
-read -p "Worker Name: " WORKER
-read -p "Threads (rekomendasi 2): " THREADS
-
-# Buat config.json baru
-echo "⚙️ Membuat config.json baru..."
+# Buat file konfigurasi
 cat > config.json <<EOF
 {
-  "algo": "lyra2v2",
-  "url": "stratum+tcp://$POOL:$PORT",
-  "user": "$WALLET.$WORKER",
+  "url": "stratum+tcp://${POOL}:${PORT}",
+  "user": "${WALLET}.${WORKER}",
   "pass": "x",
-  "threads": $THREADS,
-  "quiet": true
+  "algo": "x16rv2",
+  "threads": ${THREADS}
 }
 EOF
 
-# Fungsi mining (loop + tampil minimal)
-run_miner() {
-  while true; do
-    ./ccminer --config config.json 2>&1 | awk '
-      /hashrate/ {
-        match($0, /[0-9]+\.[0-9]+[[:space:]]*[kKmMgG][hH]\/s/, rate);
-        hashrate = rate[0];
-      }
-      /accepted: yes/ {
-        if (hashrate != "") {
-          system("clear");
-          print "██████████████████████████";
-          printf("██  %-16s ██\n", hashrate " | YES");
-          print "██████████████████████████";
-          fflush();
-        }
-      }
-    '
-    echo -e "\n⚠️ Miner crash atau keluar. Restart dalam 5 detik..."
-    sleep 5
+# Jalankan miner dan tampilkan hanya ringkasan
+echo "🚀 Menjalankan miner..."
+while true; do
+  ./ccminer --config config.json 2>&1 | grep --line-buffered -E "YES|[0-9]+\.[0-9]+ Mh/s" | \
+  while read -r line; do
+    MH=$(echo "$line" | grep -oE "[0-9]+\.[0-9]+ Mh/s")
+    YES=$(echo "$line" | grep -o "YES")
     clear
+    echo "██████████████████████████"
+    printf "██  %-13s %-4s ██\n" "$MH" "$YES"
+    echo "██████████████████████████"
   done
-}
-
-echo "🚀 Menjalankan CCMiner..."
-sleep 1
-run_miner
+  sleep 2
+done
