@@ -1,4 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
+
+#testing aja
+
 clear
 echo "🔧 Memeriksa dan menginstall dependensi Termux..."
 sleep 1
