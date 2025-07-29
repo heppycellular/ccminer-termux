@@ -1,14 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/bash
-
-#testing aja
-
 clear
 echo "🔧 Memeriksa dan menginstall dependensi Termux..."
 sleep 1
 
 pkg update -y > /dev/null 2>&1
 pkg upgrade -y > /dev/null 2>&1
-pkg install wget curl libjansson nano -y > /dev/null 2>&1
+pkg install wget curl libjansson nano dos2unix -y > /dev/null 2>&1
 
 echo "✅ Semua dependensi sudah terpasang!"
 sleep 1
@@ -36,10 +33,19 @@ if [ ! -f "./config.json" ]; then
   "quiet": true
 }
 EOF
-    echo "📄 Silakan edit config.json untuk mengisi pool, port, wallet, worker"
-    sleep 2
+    echo "📄 Silakan isi dulu config.json (wallet, pool, port, dll)"
+    echo "⌛ Tungguin... buka dengan: nano ~/ccminer/config.json"
+    read -p "Tekan Enter setelah selesai mengedit..."
 fi
 
+# Cek apakah config masih default
+if grep -q "POOL" config.json || grep -q "WALLET" config.json; then
+    echo "⚠️ Config belum diisi. Harap edit dulu config.json"
+    nano config.json
+    read -p "Tekan Enter untuk melanjutkan mining..."
+fi
+
+# Fungsi mining
 run_miner() {
   while true; do
     ./ccminer --config config.json 2>&1 | awk '
@@ -63,11 +69,6 @@ run_miner() {
   done
 }
 
-if pgrep -f "ccminer --config config.json" > /dev/null; then
-  echo "⚠️  CCMiner sudah berjalan. Tidak dimulai ulang."
-  exit 1
-else
-  echo "🚀 Menjalankan CCMiner... Tekan CTRL + C untuk berhenti."
-  sleep 1
-  run_miner
-fi
+echo "🚀 Menjalankan CCMiner..."
+sleep 1
+run_miner
